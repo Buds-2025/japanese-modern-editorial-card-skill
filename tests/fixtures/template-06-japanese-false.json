@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "theme": "white",
+  "isJapaneseTheme": false,
+  "posters": [{
+    "id": "must-reject-japanese",
+    "template": "vertical-06",
+    "subject": { "id": "red-chamber", "label": "红楼梦" },
+    "issue": "中国古典四大名著",
+    "pageTheme": "园林余韵",
+    "content": {
+      "kickers": ["红楼梦·园林余韵"],
+      "titles": ["梦醒大观园"],
+      "caption": "A GARDEN REMEMBERS WHAT PEOPLE LOSE",
+      "quotes": ["花落后，园中有回声"],
+      "details": [{ "heading": "园中余韵", "body": "园林保留人物青春消散后的回声", "english": "The garden keeps a fading youth", "japanese": "日本語の注記は許可されない" }]
+    },
+    "images": [{ "slot": "equal-height-voice-source-image", "subjectId": "red-chamber", "src": "../../../output/basixing-mingzhu-white-20260820/generated-images/red-chamber-01.jpg", "alt": "园林石桥与荷花", "fit": "cover", "focus": "center center" }]
+  }]
+}

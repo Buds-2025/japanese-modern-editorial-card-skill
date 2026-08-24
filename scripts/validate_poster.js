@@ -41,24 +41,85 @@ function textOnly(html) {
   return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
 
-function checkStatic(html, file, issues) {
+function hasTerminalPunctuation(value) {
+  return /\p{P}$/u.test(textOnly(value));
+}
+
+function hasInvalidChineseQuote(value) {
+  const text = textOnly(value);
+  const standaloneApostrophe = /(?<![A-Za-z])['‘’](?![A-Za-z])/u;
+  return /[“”]/u.test(text) || (/[\u3400-\u9fff]/u.test(text) && (/"/u.test(text) || standaloneApostrophe.test(text)));
+}
+
+function checkVisibleTextRules(value, file, issues, label) {
+  const text = textOnly(value);
+  if (!text) return;
+  if (hasTerminalPunctuation(text)) {
+    issues.push({ file, type: "terminal-punctuation", message: `${label} ends with punctuation: ${text}` });
+  }
+  if (hasInvalidChineseQuote(text)) {
+    issues.push({ file, type: "chinese-quote-style", message: `${label} must use 「」 for quotation marks in Chinese text: ${text}` });
+  }
+}
+
+function isEnglishDate(value) {
+  const match = textOnly(value).match(/^(Jan\.|Feb\.|Mar\.|Apr\.|May|Jun\.|Jul\.|Aug\.|Sep\.|Oct\.|Nov\.|Dec\.)\s([1-9]|[12]\d|3[01])(st|nd|rd|th)$/u);
+  if (!match) return false;
+  const day = Number(match[2]);
+  const monthDays = { "Jan.": 31, "Feb.": 29, "Mar.": 31, "Apr.": 30, May: 31, "Jun.": 30, "Jul.": 31, "Aug.": 31, "Sep.": 30, "Oct.": 31, "Nov.": 30, "Dec.": 31 };
+  if (day > monthDays[match[1]]) return false;
+  const suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[day % 10] ?? "th");
+  return match[3] === suffix;
+}
+
+function checkStatic(html, file, issues, expectedProductionDate) {
+  const visibleHtml = html.replace(/<!--[\s\S]*?-->/g, "");
   if (/data:image\/svg\+xml|\.svg(?:["?#])/i.test(html)) {
     issues.push({ file, type: "svg-final-image", message: "Final HTML references SVG image data or .svg files; rasterize images to PNG/JPEG/WebP before rendering." });
   }
-  for (const match of html.matchAll(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/g)) {
-    const text = textOnly(match[1]);
-    if (/[。！？!?；;：:，,、.]$/u.test(text)) {
-      issues.push({ file, type: "title-punctuation", message: `Title ends with punctuation: ${text}` });
+  for (const match of html.matchAll(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/g)) checkVisibleTextRules(match[1], file, issues, "Title");
+  for (const match of html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)) checkVisibleTextRules(match[1], file, issues, "Text");
+  const forbidden = /主题标题|主题大标题承载区|金句区|详细内容承载|FEATURE TITLE|VOICE FIELD|TITLE A|TITLE B|IMAGE GROUP\s*\/\s*TEXT GROUP|DETAIL ZONE MAY INCLUDE|A quiet opening title|Image and text answer each other|NOTE\s+\d+/i;
+  if (forbidden.test(visibleHtml)) {
+    issues.push({ file, type: "template-placeholder", message: "Rendered HTML still contains template placeholder copy." });
+  }
+  const section = html.match(/<section\b[^>]*class="[^"]*\bposter\b[^"]*"[^>]*>/i)?.[0] ?? "";
+  const subjectId = section.match(/\bdata-jp-subject-id="([^"]+)"/i)?.[1];
+  const isJapaneseTheme = section.match(/\bdata-jp-is-japanese-theme="([^"]+)"/i)?.[1] === "true";
+  if (!subjectId) {
+    issues.push({ file, type: "subject-missing", message: "Poster has no declared subject identity." });
+  } else {
+    for (const image of html.matchAll(/<img\b[^>]*\bdata-jp-subject-id="([^"]+)"[^>]*>/gi)) {
+      if (image[1] !== subjectId) issues.push({ file, type: "image-subject-mismatch", message: `Image subject ${image[1]} differs from poster subject ${subjectId}.` });
+    }
+    for (const image of html.matchAll(/<img\b[^>]*>/gi)) {
+      if (!/\bdata-jp-subject-id="[^"]+"/i.test(image[0])) issues.push({ file, type: "image-subject-missing", message: "An image is missing its subject binding." });
     }
   }
-  for (const match of html.matchAll(/<div[^>]*class="[^"]*jp-template-quote-zone[^"]*"[^>]*>\s*<p[^>]*>([\s\S]*?)<\/p>/g)) {
-    const text = textOnly(match[1]);
-    if (text && !/[。！？.!?]$/u.test(text)) {
-      issues.push({ file, type: "quote-ending", message: `Golden quote has invalid ending: ${text}` });
-    }
+  if (/id="vertical-06"/i.test(section) && !isJapaneseTheme && (/<[^>]*\blang="ja"/i.test(visibleHtml) || /[\u3040-\u30ff]/u.test(visibleHtml))) {
+    issues.push({ file, type: "unexpected-japanese", message: "Template 06 may contain Japanese text only for a Japanese theme." });
   }
-  if (/[“”‘’]/u.test(html)) {
-    issues.push({ file, type: "quote-style", message: "Chinese curly quotes found; use 「」 unless preserving explicit source quotes." });
+  const headerDate = visibleHtml.match(/<header class="jp-page-header">[\s\S]*?<p class="jp-page jp-red-mark">([^<]+)<\/p>/i)?.[1]?.trim();
+  if (!isEnglishDate(headerDate ?? "")) {
+    issues.push({ file, type: "header-date", message: "The upper-right header must contain an English month and ordinal day." });
+  } else if (expectedProductionDate && headerDate !== expectedProductionDate) {
+    issues.push({ file, type: "header-production-date", message: `The upper-right header must match the shared production date: ${expectedProductionDate}.` });
+  }
+  const issue = visibleHtml.match(/<header class="jp-page-header">\s*<p class="jp-issue">([^<]+)<\/p>/i)?.[1]?.trim();
+  if (!issue) {
+    issues.push({ file, type: "header-issue", message: "The upper-left header must contain the shared issue theme." });
+  }
+  const footerLabel = visibleHtml.match(/<footer class="jp-page-footer"><p class="jp-meta">([^<]+)<\/p>/i)?.[1]?.trim();
+  const footerPage = visibleHtml.match(/<footer class="jp-page-footer">[\s\S]*?<p class="jp-page jp-red-mark">([^<]+)<\/p>/i)?.[1]?.trim();
+  const pageThemeMatch = (footerLabel ?? "").match(/^P(\d{2})\s\/\s(.+)$/u);
+  const pageCountMatch = (footerPage ?? "").match(/^(\d{2})\s\/\s(\d+)$/u);
+  if (!pageThemeMatch || pageThemeMatch[2].trim().length < 2) {
+    issues.push({ file, type: "page-theme", message: "The lower-left footer must use P01-style numbering followed by a page theme." });
+  }
+  if (!pageCountMatch) {
+    issues.push({ file, type: "page-count", message: "The lower-right footer must retain the currentPage / totalPages count." });
+  } else if (pageThemeMatch && pageThemeMatch[1] !== pageCountMatch[1]) {
+    issues.push({ file, type: "page-sequence", message: "The lower-left P number must match the lower-right current page." });
   }
   for (const line of html.replace(/<br\s*\/?>/gi, "\n").split(/\r?\n/)) {
     const text = textOnly(line);
@@ -92,6 +153,9 @@ async function checkBrowser(files, issues) {
           if (Math.round(box.width) !== 1080 || Math.round(box.height) !== 1440) {
             output.push({ type: "poster-size", message: `Poster size is ${Math.round(box.width)}x${Math.round(box.height)}, expected 1080x1440.` });
           }
+          if (poster.scrollHeight > poster.clientHeight + 2 || poster.scrollWidth > poster.clientWidth + 2) {
+            output.push({ type: "poster-overflow", message: "Poster content exceeds the fixed 1080x1440 canvas." });
+          }
         }
 
         for (const element of document.querySelectorAll("[data-text-zone]")) {
@@ -100,6 +164,11 @@ async function checkBrowser(files, issues) {
           const hasFixedHeight = style.maxHeight !== "none" || /height\s*:/.test(element.getAttribute("style") || "");
           if (element.scrollWidth > element.clientWidth + 2 || (hasFixedHeight && element.scrollHeight > element.clientHeight + 2)) {
             output.push({ type: "text-overflow", message: `${slot} overflows its text box.` });
+          }
+          const box = element.getBoundingClientRect();
+          const posterBox = poster?.getBoundingClientRect();
+          if (posterBox && (box.left < posterBox.left - 1 || box.right > posterBox.right + 1 || box.top < posterBox.top - 1 || box.bottom > posterBox.bottom + 1)) {
+            output.push({ type: "text-outside-canvas", message: `${slot} extends outside the poster canvas.` });
           }
 
           const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -135,6 +204,9 @@ async function checkBrowser(files, issues) {
           if (!img || !img.getAttribute("src")) {
             output.push({ type: "image-missing", message: `${slot} has no image source.` });
           }
+          if (img && (!img.complete || img.naturalWidth === 0)) {
+            output.push({ type: "image-load", message: `${slot} image failed to load.` });
+          }
           if (box.width <= 0 || box.height <= 0) {
             output.push({ type: "image-frame", message: `${slot} image frame has invalid size.` });
           }
@@ -165,9 +237,26 @@ async function main() {
   }
 
   const issues = [];
+  let expectedProductionDate;
+  if (args.manifest) {
+    const manifestPath = path.resolve(args.manifest);
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8").replace(/^\uFEFF/, ""));
+    expectedProductionDate = manifest.productionDate;
+    if (!isEnglishDate(expectedProductionDate ?? "")) {
+      issues.push({ file: manifestPath, type: "manifest-production-date", message: "The manifest must record a valid shared production date." });
+    }
+  }
+  const headerDates = new Map();
   for (const file of files) {
     const html = fs.readFileSync(file, "utf8");
-    checkStatic(html, file, issues);
+    checkStatic(html, file, issues, expectedProductionDate);
+    const headerDate = html.replace(/<!--[\s\S]*?-->/g, "").match(/<header class="jp-page-header">[\s\S]*?<p class="jp-page jp-red-mark">([^<]+)<\/p>/i)?.[1]?.trim();
+    if (headerDate) headerDates.set(file, headerDate);
+  }
+  if (new Set(headerDates.values()).size > 1) {
+    for (const [file, headerDate] of headerDates) {
+      issues.push({ file, type: "header-date-mismatch", message: `The upper-right header must use one shared production date for the full set; found ${headerDate}.` });
+    }
   }
   await checkBrowser(files, issues);
 

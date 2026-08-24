@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "theme": "white",
+  "isJapaneseTheme": true,
+  "posters": [{
+    "id": "tokyo-voice",
+    "template": "vertical-06",
+    "subject": { "id": "tokyo-garden", "label": "东京庭园" },
+    "issue": "东京散步札记",
+    "pageTheme": "庭园余白",
+    "content": {
+      "kickers": ["东京庭园·午后"],
+      "titles": ["风过庭园时"],
+      "caption": "THE GARDEN HOLDS THE AFTERNOON",
+      "quotes": ["风声停在石阶与树影之间"],
+      "details": [{ "heading": "午后庭园", "body": "石阶、树影与水面共同留住午后的节奏", "english": "Stone, shade, and water hold the afternoon", "japanese": "石段と木陰に、午後の静けさが残る" }]
+    },
+    "images": [{ "slot": "equal-height-voice-source-image", "subjectId": "tokyo-garden", "src": "../../../output/basixing-mingzhu-white-20260820/generated-images/red-chamber-01.jpg", "alt": "庭园石桥与荷花", "fit": "cover", "focus": "center center" }]
+  }]
+}

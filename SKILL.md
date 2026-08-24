@@ -1,98 +1,71 @@
 ---
 name: jp-magazine-poster
-description: Generate Japanese magazine style poster HTML and PNG from a user topic, source text, or provided images using the bundled white and midnight vertical templates. Use when creating one or more fixed-layout Japanese magazine posters, filling title, golden quote, detail text, and image zones while preserving template typography and layout.
+description: Generate validated fixed-layout Japanese magazine style cards as HTML and PNG. Use for one or more 1080x1440 editorial cards that need stable typography, matched copy and images, page metadata, and reusable vertical templates.
 ---
 
 # JP Magazine Poster
 
-## Workflow
+Create fixed-layout editorial cards from a topic, source text, and approved images. The renderer owns geometry; the input spec owns the content and image bindings.
 
-Use this skill to turn a user topic, source text, or image set into Japanese magazine style poster files.
+Read [references/template-contract.md](references/template-contract.md) before choosing a template or filling a card.
 
-1. Read `references/template-contract.md` before selecting templates or filling slots.
-2. Before production work, ask exactly one form-style clarification round:
-   - Summarize the user's current request in 1-3 short sentences.
-   - Ask for missing or confirmable choices about style/theme, poster count, image sourcing, template selection, copy tone, output directory, and any must-use/must-avoid content.
-   - Prefer compact numbered questions with concrete options where useful.
-   - Ask only once. Do not loop for more clarification after the user answers.
-   - If the user still leaves gaps, proceed with reasonable defaults and record those assumptions in the spec or manifest.
-3. Understand the user's theme and requested output count from the original request plus that one answer.
-4. Choose templates:
-   - Use the user's explicit template IDs when provided.
-   - Use all 8 templates when the user asks for every style.
-   - Otherwise choose the fewest templates that fit the content shape.
-5. Create concise content for each zone:
-   - `title`: no final punctuation. Short clauses may use commas inside the title.
-   - `goldenQuote`: must end with a Chinese or English sentence-ending mark.
-   - `detail`: normal punctuation and factual source context.
-   - Replace Chinese quotation marks with corner brackets unless the user explicitly requires original quoted text.
-   - Avoid single-character lines and single-character-plus-punctuation lines.
-6. Choose images by strict priority:
-   - User-provided image paths or URLs.
-   - Call a system-available model or tool to generate theme-matched bitmap images, then save the selected raster files under the output directory before rendering.
-   - Draw polished SVG artwork only after user images are absent and available image-generation models/tools are unavailable, fail, or cannot return project-local bitmap files. Record that reason in `assumptions` or `manifest`.
-   - SVG may be used only as an internal drawing source and must be rasterized to PNG before final HTML rendering.
-7. Write an input JSON spec and run:
+## Intake and card design
+
+Ask one compact intake round before production unless the user explicitly asks to skip it. Confirm the shared issue, card count, theme, available images or image method, desired templates, copy tone, output path, and restrictions. After that reply, make documented defaults for any remaining gaps instead of asking again.
+
+Build one complete `posters[]` record per card. Do not use global title, detail, or image arrays. A card's `subject.id`, copy, image slots, and page theme stay in the same record. The upper-right production date is generated outside the card record once per render.
+
+- Use the explicit template IDs if the user supplied them. Use all seven available templates only when requested. Otherwise select the fewest templates that fit the material.
+- Preserve template CSS, dimensions, grid, safe areas, fonts, and hierarchy. Shorten or rewrite copy when it fails its zone budget.
+- A user's explicit typography rule overrides every generic template copy convention. Translate it into input validation before generating output.
+- Use local raster images supplied by the user first. If no suitable image is supplied or the user asks for generated art, call the system-provided image generator and save the selected PNG, JPEG, or WebP under the output directory. Do not substitute web search results, stock assets, SVGs, or HTML/CSS-made images. A missing raster image is a failed card, not permission to use placeholder art.
+- Keep each image's `subjectId` identical to its card's `subject.id`. Use `fit: "cover"` and an explicit two-part `focus` position.
+
+For every generated image set, read [references/image-generation.md](references/image-generation.md) before writing prompts or selecting an asset.
+
+## Fixed metadata contract
+
+Every version 3 spec must include a boolean top-level `isJapaneseTheme` and one unique `pageTheme` per card.
+
+- Upper left: `issue`, shared by the card set.
+- Upper right: generated once at render time from the production date in the Asia/Shanghai time zone, such as `Aug. 24th`. It is identical on every card and never supplied per page.
+- Lower left: generated `P01 / pageTheme`, with the `P` number following card order.
+- Lower right: generated `01 / totalPages` and remains a page count.
+- In `vertical-06`, Japanese kana are permitted only when the entire set has `isJapaneseTheme: true`. Do not put Japanese in non-Japanese `vertical-06` cards. This restriction does not apply to `vertical-08`.
+- All visible text must end in a letter, number, or CJK character, never punctuation. This includes headings, captions, quotations, translations, details, issue, date, and page theme. Punctuation inside a line is allowed when necessary. For sourced poetry or quotations, preserve wording and internal punctuation while removing terminal punctuation.
+- In Chinese text, use `「」` for quotation marks. Do not use straight quotes or curly quotation marks, including for quoted source text.
+
+## Production and verification
+
+Write a strict version 3 input spec, then run:
 
 ```bash
-node scripts/render_poster.js --spec input.json --out output/<run-name>
-node scripts/validate_poster.js --html output/<run-name>/*.html
+npm run render -- --spec input.json --out output/<run-name>
+npm run validate -- --html output/<run-name>/*.html
+npm run test:skill
 ```
 
-If validation fails, shorten or rewrite copy, adjust explicit line breaks, change image focus, then render and validate again.
+The renderer rejects missing slots, duplicate page themes, terminal punctuation in visible copy, non-`「」` Chinese quotation marks, manually supplied per-page dates, unsupported URLs, non-raster sources, non-cover image fits, image-to-subject mismatches, and non-Japanese Japanese text in template 06. The validator checks the same visible-text rules in output HTML as well as the shared production date, page metadata, placeholders, image bindings, image load state, dimensions, overflow, and rendered orphan lines.
 
-## Quality Requirements
+Review every generated source image and every exported PNG with a vision-capable tool before delivery. Confirm the declared subject, shared art direction, absence of visible text and borders in source images, every image crop, title, quote, detail text, header date, and page theme. Automated checks stop structural errors; this final review catches semantic mistakes that metadata cannot establish.
 
-- Do not start rendering, image generation, or copy fitting until the one-round intake form has been asked and answered, unless the user explicitly says to skip questions.
-- Missing details after the one-round intake must be filled by practical defaults rather than more questions.
-- Final HTML must not reference `.svg` files or `data:image/svg+xml`.
-- Image sourcing must follow the strict priority: user-provided images, then system-available bitmap generation, then polished SVG drawing as the last resort.
-- Generated, drawn, or fallback images must be written as PNG/JPEG/WebP files under the output directory before they are placed into image zones.
-- Do not treat template fallback art or SVG rasterization as equivalent to model/tool bitmap generation. If model/tool generation is skipped or fails, record the exact reason.
-- PNG poster export defaults to 2x scale for sharper review output.
-- Template 03 object-card notes must be very short because each card has a fixed 216px row height.
-- Template 06 image zones must keep `.jp-photo-zone { width: 100%; max-width: 100%; }` so the left image cannot intrude into the right text column.
-
-## Spec Format
-
-Minimum input:
+## Spec outline
 
 ```json
 {
+  "version": 3,
   "theme": "white",
-  "templates": ["vertical-02"],
-  "sourceText": "User topic or source text",
-  "assumptions": ["Any defaults used after the one-round intake."],
-  "images": [
-    {
-      "slot": "single-photo-feature",
-      "src": "D:/path/to/image.png",
-      "fit": "cover",
-      "focus": "center 50%"
-    }
-  ],
-  "content": {
-    "title": "Poster title",
-    "goldenQuote": "A clear editorial sentence.",
-    "details": ["Detail one.", "Detail two."]
-  }
+  "isJapaneseTheme": false,
+  "posters": [{
+    "id": "garden-feature",
+    "template": "vertical-02",
+    "subject": { "id": "red-chamber", "label": "红楼梦" },
+    "issue": "中国古典四大名著",
+    "pageTheme": "大观园",
+    "content": { "kickers": ["红楼梦·大观园"], "titles": ["梦醒大观园"], "quotes": ["繁华尽处，青春各自散场"], "details": [{ "body": "大观园盛放诗意，也预示人物命运转折", "english": "A garden of beauty and decline" }] },
+    "images": [{ "slot": "single-photo-feature", "subjectId": "red-chamber", "src": "D:/path/to/image.png", "alt": "大观园中的古装女子", "fit": "cover", "focus": "center center" }]
+  }]
 }
 ```
 
-Notes:
-
-- `theme` accepts `white`, `midnight`, `light`, or `dark`.
-- `templates` accepts template IDs such as `vertical-02`, template names such as `vertical-single-photo-headline`, or `all`.
-- `content.details` may be an array of strings or objects with `heading`, `title`, and `body`.
-- `images[].slot` should match a `data-slot-id` or `data-relation-id` listed in the template contract.
-
-## Output
-
-The render script creates:
-
-- One HTML file per poster.
-- One PNG file per poster when Playwright is installed and Chromium is available.
-- `manifest.json` with template, theme, image source, output file paths, and validation/export status.
-- `generated-images/*.png` when generated, fallback, or SVG-source images are rasterized.
-
-Keep original template layout intact. Do not change font sizes, line heights, widths, safe margins, grid settings, or visual structure to force content to fit. Fix content instead.
+The exact content counts and slot names are in the template contract. For a complete all-template reference, use [examples/four-classics-v2.json](examples/four-classics-v2.json).

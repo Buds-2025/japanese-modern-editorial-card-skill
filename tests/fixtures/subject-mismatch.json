@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "theme": "white",
+  "isJapaneseTheme": false,
+  "posters": [{
+    "id": "must-fail",
+    "template": "vertical-02",
+    "subject": { "id": "red-chamber", "label": "红楼梦" },
+    "issue": "校验反例",
+    "pageTheme": "大观园",
+    "content": {
+      "kickers": ["红楼梦·大观园"],
+      "titles": ["梦醒大观园"],
+      "quotes": ["繁华尽处，青春各自散场"],
+      "details": [{ "body": "此文件故意验证主题绑定失败", "english": "This fixture must fail" }]
+    },
+    "images": [{
+      "slot": "single-photo-feature",
+      "subjectId": "three-kingdoms",
+      "src": "../../../output/basixing-mingzhu-white-20260820/generated-images/red-chamber-02.jpg",
+      "alt": "大观园中的古装女子",
+      "fit": "cover",
+      "focus": "center center"
+    }]
+  }]
+}

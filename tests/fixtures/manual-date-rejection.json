@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "theme": "white",
+  "isJapaneseTheme": false,
+  "posters": [{
+    "id": "must-reject-manual-date",
+    "template": "vertical-04",
+    "subject": { "id": "water-margin", "label": "水浒传" },
+    "issue": "校验反例",
+    "date": "Mar. 1st",
+    "pageTheme": "百将列传",
+    "content": {
+      "kickers": [],
+      "titles": ["一百单八将"],
+      "quotes": ["聚义照见命运的阴影"],
+      "details": [{ "title": "聚义", "body": "好汉因冤屈汇聚梁山" }, { "title": "忠义", "body": "义气凝聚人心，也制造困局" }, { "title": "招安", "body": "命运从此转入悲剧终章" }]
+    },
+    "images": []
+  }]
+}

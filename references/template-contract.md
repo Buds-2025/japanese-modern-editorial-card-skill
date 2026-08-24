@@ -7,23 +7,23 @@ All templates are 1080 x 1440 vertical posters. The white and midnight versions 
 - Before generation, perform exactly one form-style intake round. Summarize the known request, ask compact questions about style/theme, count, image method, template selection, copy tone, output path, and constraints, then proceed after the answer.
 - Do not keep asking follow-up questions. If information is still missing after that one round, choose reasonable defaults and record them in the spec or manifest.
 - Preserve CSS typography, spacing, width, height, grid, and safe-area rules.
-- Replace content only inside `data-text-zone` and `.jp-photo-zone` regions.
+- The upper-left header is the shared `issue` for the full card set. The upper-right header is generated once from the production date in the Asia/Shanghai time zone and repeated unchanged on every card. A per-card `date` field is forbidden. The lower-left footer is `P01 / pageTheme`, with the `P` sequence matching the card order and a distinct 2-18 character `pageTheme` on every card. Keep the lower-right footer as the existing `currentPage / totalPages` count.
+- Replace content only inside `data-text-zone` and `.jp-photo-zone` regions. Each output is a self-contained card record with one `subject.id`; never use global parallel arrays or index-based rotation.
 - Use `data-slot-id` as the stable replacement key. If missing in older markup, use `data-relation-id`.
-- Image replacement changes only `<img src>`, `alt`, `object-fit`, and `object-position`.
-- Image sourcing priority is strict: user-provided images first; then system-available model/tool generation of theme-matched bitmap images; then polished SVG drawing only as a last resort.
-- If SVG drawing is used because bitmap generation was unavailable, failed, or could not return project-local files, record that reason in the spec `assumptions` or output manifest.
+- Image replacement changes only `<img src>`, `alt`, `object-fit`, and `object-position`. Every image must declare the same `subjectId` as the card, use a local raster file or HTTPS bitmap URL, and include a descriptive `alt` for visual review.
+- Image sourcing priority is strict: user-provided images first; then system-provided image generation when no suitable image is supplied or the user requests generated art. Do not replace this with web search, stock assets, SVGs, or HTML/CSS-made images. A card without a valid bitmap image must fail validation rather than receive substitute art.
+- Generated images must follow [image-generation.md](image-generation.md): one declared art direction per set, no visible letters, numbers, punctuation, logos, watermarks, typography, borders, frames, collages, or UI elements. Text belongs in the fixed card layout only.
 - Final image sources must be raster files (`.png`, `.jpg`, `.jpeg`, `.webp`) or remote bitmap URLs. Do not leave `.svg` or `data:image/svg+xml` in rendered HTML.
-- If SVG is used to construct fallback art, rasterize it into PNG before filling the template.
 - Text replacement changes only text content inside the target zone.
-- Validation must check punctuation, quote style, overflow, poster dimensions, and image frame fill.
+- Validation must check punctuation, quote style, template placeholder leakage, subject binding, overflow, poster dimensions, image load state, and image frame fill. PNGs still require a final visual review by the generating agent, including generated-image text, border, and style-consistency checks.
 
 ## Text Rules
 
-- Title zones: no final punctuation. Internal commas are allowed for short clauses.
-- Golden quote zones: final character must be `。`, `！`, `？`, `.`, `!`, or `?`.
-- Detail zones: use normal punctuation.
-- Chinese quote marks should be `「」`, except when preserving explicitly quoted source text.
+- Every visible text zone must end in a letter, number, or CJK character. Terminal punctuation is prohibited in titles, quotes, captions, details, headers, dates, and page themes. Internal punctuation is allowed when it preserves meaning.
+- Sourced poetry and quotations retain their wording and internal punctuation, but terminal punctuation is removed for this card system.
+- Chinese quotation marks must use `「」` in every context. Straight quotes and curly quotation marks are prohibited in Chinese text, including quoted source text.
 - Avoid manual or rendered lines containing only one CJK character or one CJK character plus punctuation.
+- Japanese kana may appear in `vertical-06` only when the top-level `isJapaneseTheme` is `true`. Do not add Japanese to a non-Japanese `vertical-06` card. The restriction does not apply to `vertical-08`.
 
 ## Templates
 
@@ -35,14 +35,13 @@ All templates are 1080 x 1440 vertical posters. The white and midnight versions 
 | `vertical-04` | `vertical-ruled-hierarchy-list` | Hierarchical list or framework without images | none | Medium title, one quote, three numbered rows |
 | `vertical-05` | `vertical-image-row-note-list` | Upper image mapped to lower observation rows | `upper-image-sequence` | Short title/meta, one quote, three numbered rows |
 | `vertical-06` | `vertical-equal-photo-voice-note` | Quote/person/source voice with equal image and text weight | `equal-height-voice-source-image` | Medium title, one quote, one rich detail block |
-| `vertical-07` | `vertical-before-after-cards` | Two-sided comparison, before/after, A/B viewpoints | none | Two paired title/quote/detail groups |
 | `vertical-08` | `vertical-square-photo-board` | Four-scene environment board or visual mood board | `square-scene-1` to `square-scene-4` | Medium title, one quote, one detail block |
 
 ## Copy Budgets
 
 - Large title: 4-18 Chinese characters, max 2 lines.
 - Medium title: 4-16 Chinese characters, max 2 lines.
-- Golden quote: 8-36 Chinese characters, max 3 lines.
+- Golden quote: 8-36 Chinese characters, or 3-20 words when the quote has no CJK text; max 3 lines.
 - Detail block: 18-90 Chinese characters unless the template uses compact list rows.
 - Compact list item title: 2-8 Chinese characters.
 - Compact list item note: 8-28 Chinese characters.
