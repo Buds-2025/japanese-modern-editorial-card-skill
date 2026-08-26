@@ -49,6 +49,10 @@ The renderer rejects missing slots, duplicate page themes, terminal punctuation 
 
 Review every generated source image and every exported PNG with a vision-capable tool before delivery. Confirm the declared subject, shared art direction, absence of visible text and borders in source images, every image crop, title, quote, detail text, header date, and page theme. Automated checks stop structural errors; this final review catches semantic mistakes that metadata cannot establish.
 
+## 导出命名规范
+
+最终交付的每张 PNG 使用带序号命名：`P01-<pageTheme>.png`、`P02-<pageTheme>.png`……序号按卡片顺序（`posters[]` 中的顺序）递增，`<pageTheme>` 使用该卡唯一的 `pageTheme`（与页脚 `P0x / pageTheme` 一致）。HTML 与 manifest 保留渲染器生成的文件名，仅 PNG 在交付前重命名为该格式。
+
 ## Spec outline
 
 ```json

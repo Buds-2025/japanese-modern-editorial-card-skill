@@ -54,3 +54,7 @@ Prefer rewriting over squeezing. If content exceeds the zone, reduce text before
 - `.jp-photo-zone` must have `width: 100%; max-width: 100%;`. This prevents tall image frames, especially `vertical-06`, from expanding beyond their grid column.
 - Validate `.jp-frame-inset` overflow. Fixed-height cards in `vertical-03` must not scroll or overlap the next row.
 - Export poster PNGs at 2x scale unless the user explicitly asks for 1x.
+
+## 导出命名规范
+
+最终交付的每张 PNG 使用带序号命名：`P01-<pageTheme>.png`、`P02-<pageTheme>.png`……序号按 `posters[]` 顺序递增，`<pageTheme>` 使用该卡唯一的 `pageTheme`（与页脚 `P0x / pageTheme` 一致）。HTML 与 manifest 保留渲染器生成的文件名，仅 PNG 在交付前重命名为该格式。
